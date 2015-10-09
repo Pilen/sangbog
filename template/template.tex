@@ -1,0 +1,53 @@
+\documentclass[a4paper,11pt,oneside,openany]{book}
+\usepackage[danish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{a4wide}
+\usepackage[usenames, dvipsnames]{xcolor}
+\usepackage{verbatim}
+\usepackage{multicol}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amssymb}
+\usepackage[lyric]{songs}
+\usepackage{layout}
+
+\setlength{\oddsidemargin}{0.5cm}
+\setlength{\evensidemargin}{0.5cm}
+\setlength{\textwidth}{6.5in}
+\setlength{\headheight}{0in}
+\setlength{\headsep}{0.5cm}
+\settowidth{\versenumwidth}{1.\ }
+
+\authsepword{og}
+
+\renewcommand{\chorusfont}{\it}
+\renewcommand{\colbotglue}{0pt plus .5\textheight minus 0pt}
+\newcommand{\tm}{\texttrademark\ }
+
+\newcommand\Vtextvisiblespace[1][.3em]{%
+  \mbox{\kern.06em\vrule height.3ex}%
+  \vbox{\hrule width#1}%
+  \hbox{\vrule height.3ex}}
+
+\versesep=10pt plus 1pt minus 1pt
+
+\addtolength{\hoffset}{-1cm}
+
+\newindex{titleidx}{titleidx}
+
+\begin{document}
+
+\begin{center}
+  % This file is generated automatically, so dont modify.
+  % If you want to change its color use the --logo-color option for the script instead.
+  \includegraphics[width=0.8\textwidth]{logo.eps}\\
+  {\Huge Datalogi sangbog \the\year}
+\end{center}
+\newpage
+
+\songsection{}
+\begin{songs}{}
+{{BODY}}
+\end{songs}
+\end{document}
