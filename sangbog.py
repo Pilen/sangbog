@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -16,8 +17,10 @@ def get_config():
     default_output = "sangbog.pdf"
     default_work_dir = "work/"
     default_song_dir = "songs/"
-    default_tex_dir = "tex/"
+    default_template_dir = "template/"
     default_resource_dir = "res/"
+
+    default_logo_color = "random"
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--list", "--song-list", dest="song_list", default=default_song_list)
@@ -25,12 +28,16 @@ def get_config():
 
     parser.add_argument("-w", "--work", "--work-dir", dest="work_dir", default=default_work_dir)
     parser.add_argument("-s", "--song", "--songs", "--song-dir", "--songs-dir", dest="song_dir", default=default_song_dir)
-    parser.add_argument("-t", "--tex", "--tex-dir", dest="tex_dir", default=default_tex_dir)
+    parser.add_argument("-t", "--template", "--template-dir", dest="template_dir", default=default_template_dir)
     parser.add_argument("-r", "--res", "--resource", "--resources", "--res-dir", "--resource-dir", "--resources-dir" , dest="resource_dir", default=default_resource_dir)
 
+    parser.add_argument("--logo-color", default=default_logo_color)
+
+    parser.add_argument("--no-sort", dest="sort", action="store_false")
     parser.add_argument("--tex-file", default=None)
     parser.add_argument("-k", "--keep", action="store_true")
     parser.add_argument("-c", "--chorded", action="store_true")
+    parser.add_argument("--developer", action="store_true")
 
     config = parser.parse_args()
     if config.tex_file is None:
@@ -42,6 +49,11 @@ def get_config():
 
     return config
 
+def integrity_check(config):
+    if not config.developer:
+        result = subprocess.run(["sh", "-c", "cat " + join(config.template_dir, "*") +" | md5sum"], stdout=subprocess.PIPE, universal_newlines=True)
+        if result.stdout != "5f62b8505708c8f99a2ffbe105296d46  -\n":
+            raise SongbookError("The templates has been modified!!!\nYou shouldn't do that")
 
 class Song():
     def __init__(self, filename):
@@ -70,7 +82,7 @@ class Song():
             self.title = os.path.basename(filename)
 
     def to_tex(self):
-        return "\n".join(self.lines)
+        return "".join(self.lines)
 
 def read_songlist(song_list):
     with open(song_list) as f:
@@ -100,8 +112,10 @@ def sort_songs(songs):
             unnumbered.append(song)
         else:
             numbered.append(song)
-    unnumbered.sort(key=lambda s: s.title)
-    numbered.sort(key=lambda s: s.number)
+
+    numbered.sort(key=lambda s: s.number) # Always sort numbered
+    if config.sort:
+        unnumbered.sort(key=lambda s: s.title)
 
     sorted_songs = []
     for i in range(0, len(songs)):
@@ -121,27 +135,44 @@ def create_song_tex(songs):
     text = "\n\n%%%%%%%%\n\n".join(texts)
     return text
 
-def create_texfile(song_tex, config):
-    header_name = "header.tex"
-    frontpage_name = "frontpage.tex"
-    backpage_name = "backpage.tex"
-    footer_name = "footer.tex"
-    with open(join(config.tex_dir, header_name)) as file:
-        header = file.read()
-    with open(join(config.tex_dir, frontpage_name)) as file:
-        frontpage = file.read()
-    with open(join(config.tex_dir, backpage_name)) as file:
-        backpage = file.read()
-    with open(join(config.tex_dir, footer_name)) as file:
-        footer = file.read()
+def create_logo(config):
+    color = config.logo_color.replace(" ", "")
+    if color == "random":
+        red = random.randint(0, 255)
+        green = random.randint(0, 255)
+        blue = random.randint(0, 255)
+    elif color.startswith("#"):
+        red = int(color[1:3], 16)
+        green = int(color[3:5], 16)
+        blue = int(color[5:7], 16)
+    else:
+        red, green, blue = (int(x) for x in color.split(","))
 
-    os.makedirs(os.path.normpath(config.work_dir), exist_ok=True)
-    with open(config.tex_file, "w") as tex:
-        tex.write(header)
-        tex.write(frontpage)
-        tex.write(song_tex)
-        tex.write(backpage)
-        tex.write(footer)
+    # color_string = " ".join("{0:.8f}".format(color/255).rstrip("0").rstrip(".") for color in (red, green, blue)) + " rg"
+    color_string = "{0:.8f} {1:.8f} {2:.8f} rg".format(red/255, green/255, blue/255)
+
+    eps_name = "logo_template.eps"
+    with open(join(config.template_dir, eps_name)) as file:
+        eps = file.read()
+        eps = eps.replace("1 0 1 rg", color_string)
+    final_name = "logo.eps"
+    try:
+        with open(join(config.work_dir, final_name), "w") as file:
+            file.write(eps)
+    except Exception as e:
+        print(e)
+        raise e
+
+
+def create_texfile(song_tex, config):
+    template_name = "template.tex"
+    with open(join(config.template_dir, template_name)) as file:
+        tex = file.read()
+
+    tex = tex.replace("{{BODY}}", song_tex)
+
+    with open(config.tex_file, "w") as file:
+        file.write(tex)
 
 def pdflatex(config, capture=True):
     if capture:
@@ -164,6 +195,7 @@ def pdflatex(config, capture=True):
         raise SongbookError("pdflatex failed to compile the texfile")
 
 def compile(config):
+    shutil.copy(join(config.template_dir, "songs.sty"), config.work_dir)
     pdflatex(config)
     pdflatex(config)
     pdflatex(config)
@@ -181,16 +213,19 @@ def clean(config):
     shutil.rmtree(config.work_dir)
 
 def main(config):
-        song_files = read_songlist(config.song_list)
-        songs = load_songs(song_files)
-        categories = categorize(songs)
-        sorted_songs = sort_songs(songs)
-        hyperlink(sorted_songs, categories)
-        song_tex = create_song_tex(sorted_songs)
-        create_texfile(song_tex, config)
-        compile(config)
-        move_to_destination(config)
-        clean(config)
+    integrity_check(config)
+    os.makedirs(os.path.normpath(config.work_dir), exist_ok=True)
+    song_files = read_songlist(config.song_list)
+    songs = load_songs(song_files)
+    categories = categorize(songs)
+    sorted_songs = sort_songs(songs)
+    hyperlink(sorted_songs, categories)
+    create_logo(config)
+    song_tex = create_song_tex(sorted_songs)
+    create_texfile(song_tex, config)
+    compile(config)
+    move_to_destination(config)
+    clean(config)
 
 if __name__ == "__main__":
     config = get_config()
