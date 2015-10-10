@@ -10,7 +10,24 @@
 \usepackage{float}
 \usepackage{amssymb}
 \usepackage[lyric]{songs}
-\usepackage{layout}
+\usepackage{etoolbox}
+\usepackage[pscoord]{eso-pic}
+\usepackage{tikz}
+
+\newcommand{\placetextbox}[3]{% \placetextbox{<horizontal pos>}{<vertical pos>}{<stuff>}
+  \setbox0=\hbox{#3}% Put <stuff> in a box
+  \AddToShipoutPictureFG*{% Add <stuff> to current page foreground
+    \put(\LenToUnit{#1\paperwidth},\LenToUnit{#2\paperheight}){\vtop{{\null}\makebox[0pt][c]{#3}}}%
+  }%
+}%
+\newcommand\ChapterPrecis[2]{%
+  \begin{tikzpicture}[remember picture,overlay]%
+    \node[anchor=south,draw,yshift=-#1] at (current page.south) {\parbox[t][3cm][c]{\linewidth}{#2}};%
+  \end{tikzpicture}%
+}
+\definecolor{titlecolor}{RGB}{{{TITLECOLOR}}}
+\definecolor{covercolor}{RGB}{{{COVERCOLOR}}}
+
 
 \setlength{\oddsidemargin}{0.5cm}
 \setlength{\evensidemargin}{0.5cm}
@@ -25,6 +42,16 @@
 \renewcommand{\colbotglue}{0pt plus .5\textheight minus 0pt}
 \newcommand{\tm}{\texttrademark\ }
 
+\newcommand\songmelody{}
+\newsongkey{mel}{\def\songmelody{}}{\def\songmelody{#1}}
+% \newcommand\showmelody{fisk}
+\newcommand\showmelody{%
+  \hbox{\slshape{}\ifdefempty{\songmelody}{}{Mel: }\songmelody}%
+}
+\renewcommand\extendprelude{\footnotesize\showmelody\showauthors}
+\renewcommand\extendpostlude{}
+
+
 \newcommand\Vtextvisiblespace[1][.3em]{%
   \mbox{\kern.06em\vrule height.3ex}%
   \vbox{\hrule width#1}%
@@ -38,13 +65,20 @@
 
 \begin{document}
 
+\pagecolor{covercolor}
+\pagestyle{empty}
+% \placetextbox{0.5}{0.5}{\fbox{Datalogi sangbog \the\year}}
+% \ChapterPrecis{-4cm}{\Huge \centering Datalogi sangbog \the\year}
 \begin{center}
   % This file is generated automatically, so dont modify.
   % If you want to change its color use the --logo-color option for the script instead.
-  \includegraphics[width=0.8\textwidth]{logo.eps}\\
-  {\Huge Datalogi sangbog \the\year}
+  \includegraphics[width=0.7\textwidth]{logo.eps}\\
+\end{center}
+\begin{center}
+  {\Huge \textbf{\textcolor{titlecolor}{Datalogi sangbog \the\year}}}
 \end{center}
 \newpage
+\pagecolor{white}
 
 \songsection{}
 \begin{songs}{}
