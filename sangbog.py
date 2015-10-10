@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.5
 
 import argparse
+import math
 import os
 import random
 import re
@@ -22,6 +23,7 @@ def get_config():
 
     default_logo_color = "random"
     default_cover_color = "random"
+    default_back_color = "contrast"
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--list", "--song-list", dest="song_list", default=default_song_list)
@@ -35,6 +37,9 @@ def get_config():
     parser.add_argument("--logo-color", default=default_logo_color)
     parser.add_argument("--title-color", default=None)
     parser.add_argument("--cover-color", default=default_cover_color)
+    parser.add_argument("--back-color", default=default_back_color)
+
+    parser.add_argument("-a", "--authors", default="")
 
     parser.add_argument("--no-sort", dest="sort", action="store_false")
     parser.add_argument("--tex-file", default=None)
@@ -47,10 +52,12 @@ def get_config():
     config.logo_color = parse_color(config.logo_color)
     config.title_color = parse_color(config.title_color, config.logo_color)
     config.cover_color = parse_color(config.cover_color)
+    config.back_color = parse_color(config.back_color, suggestion=config.title_color, contrast=config.cover_color)
     print("Logo color:", *config.logo_color)
     if config.title_color != config.logo_color:
         print("Title color:", *config.title_color)
     print("Cover color:", *config.cover_color)
+    print("Back color:", *config.back_color)
 
     if config.tex_file is None:
         config.tex_filename = os.path.basename(config.output).rsplit(".", 1)[0] + ".tex"
@@ -97,12 +104,22 @@ class Song():
         return "".join(self.lines)
 
 
-def parse_color(*colors):
+def parse_color(*colors, suggestion=None, contrast=None):
     color = [color for color in colors if color][0]
     if isinstance(color, tuple):
         return color
     color = color.replace(" ", "")
-    if color == "random":
+    if color == "contrast" and contrast is not None:
+        contrast_value = (contrast[0] + contrast[1] + contrast[2]) / 3
+        distance = math.sqrt((contrast[0] - suggestion[0])**2 + (contrast[1] - suggestion[1])**2 + (contrast[2] - suggestion[2])**2)
+        print(distance)
+        if distance >= 128:
+            return suggestion
+        elif contrast_value > 128:
+            return (0, 0, 0)
+        else:
+            return (255, 255, 255)
+    elif color == "random":
         red = random.randint(0, 255)
         green = random.randint(0, 255)
         blue = random.randint(0, 255)
@@ -186,10 +203,23 @@ def create_texfile(song_tex, config):
 
     title_color = "{0},{1},{2}".format(*config.title_color)
     cover_color = "{0},{1},{2}".format(*config.cover_color)
+    back_color = "{0},{1},{2}".format(*config.back_color)
 
     tex = tex.replace("{{BODY}}", song_tex)
     tex = tex.replace("{{TITLECOLOR}}", title_color)
     tex = tex.replace("{{COVERCOLOR}}", cover_color)
+    tex = tex.replace("{{BACKCOLOR}}", back_color)
+
+    authors = [author.strip() for author in config.authors.split(",")]
+    if len(authors) == 0:
+        author_string = "RKG"
+    elif len(authors) == 1:
+        author_string = str(authors[0])
+    else:
+        *many, last = authors
+        author_string = "{0} \\& {1}".format(", ".join(many), last)
+    print(author_string)
+    tex = tex.replace("{{AUTHORS}}", author_string)
 
     with open(config.tex_file, "w") as file:
         file.write(tex)
