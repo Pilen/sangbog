@@ -21,6 +21,7 @@ def get_config():
     default_resource_dir = "res/"
 
     default_logo_color = "random"
+    default_cover_color = "random"
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--list", "--song-list", dest="song_list", default=default_song_list)
@@ -32,6 +33,8 @@ def get_config():
     parser.add_argument("-r", "--res", "--resource", "--resources", "--res-dir", "--resource-dir", "--resources-dir" , dest="resource_dir", default=default_resource_dir)
 
     parser.add_argument("--logo-color", default=default_logo_color)
+    parser.add_argument("--title-color", default=None)
+    parser.add_argument("--cover-color", default=default_cover_color)
 
     parser.add_argument("--no-sort", dest="sort", action="store_false")
     parser.add_argument("--tex-file", default=None)
@@ -40,6 +43,12 @@ def get_config():
     parser.add_argument("--developer", action="store_true")
 
     config = parser.parse_args()
+
+    config.logo_color = parse_color(config.logo_color)
+    config.title_color = parse_color(config.title_color, config.logo_color)
+    config.cover_color = parse_color(config.cover_color)
+
+
     if config.tex_file is None:
         config.tex_filename = os.path.basename(config.output).rsplit(".", 1)[0] + ".tex"
         config.tex_file = join(config.work_dir, config.tex_filename)
@@ -83,6 +92,24 @@ class Song():
 
     def to_tex(self):
         return "".join(self.lines)
+
+
+def parse_color(*colors):
+    color = [color for color in colors if color][0]
+    if isinstance(color, tuple):
+        return color
+    color = color.replace(" ", "")
+    if color == "random":
+        red = random.randint(0, 255)
+        green = random.randint(0, 255)
+        blue = random.randint(0, 255)
+    elif color.startswith("#"):
+        red = int(color[1:3], 16)
+        green = int(color[3:5], 16)
+        blue = int(color[5:7], 16)
+    else:
+        red, green, blue = (int(x) for x in color.split(","))
+    return (red, green, blue)
 
 def read_songlist(song_list):
     with open(song_list) as f:
@@ -136,32 +163,17 @@ def create_song_tex(songs):
     return text
 
 def create_logo(config):
-    color = config.logo_color.replace(" ", "")
-    if color == "random":
-        red = random.randint(0, 255)
-        green = random.randint(0, 255)
-        blue = random.randint(0, 255)
-    elif color.startswith("#"):
-        red = int(color[1:3], 16)
-        green = int(color[3:5], 16)
-        blue = int(color[5:7], 16)
-    else:
-        red, green, blue = (int(x) for x in color.split(","))
 
     # color_string = " ".join("{0:.8f}".format(color/255).rstrip("0").rstrip(".") for color in (red, green, blue)) + " rg"
-    color_string = "{0:.8f} {1:.8f} {2:.8f} rg".format(red/255, green/255, blue/255)
+    color_string = "{0:.8f} {1:.8f} {2:.8f} rg".format(*[c/255 for c in config.logo_color])
 
     eps_name = "logo_template.eps"
     with open(join(config.template_dir, eps_name)) as file:
         eps = file.read()
         eps = eps.replace("1 0 1 rg", color_string)
     final_name = "logo.eps"
-    try:
-        with open(join(config.work_dir, final_name), "w") as file:
-            file.write(eps)
-    except Exception as e:
-        print(e)
-        raise e
+    with open(join(config.work_dir, final_name), "w") as file:
+        file.write(eps)
 
 
 def create_texfile(song_tex, config):
@@ -169,7 +181,12 @@ def create_texfile(song_tex, config):
     with open(join(config.template_dir, template_name)) as file:
         tex = file.read()
 
+    title_color = "{0},{1},{2}".format(*config.title_color)
+    cover_color = "{0},{1},{2}".format(*config.cover_color)
+
     tex = tex.replace("{{BODY}}", song_tex)
+    tex = tex.replace("{{TITLECOLOR}}", title_color)
+    tex = tex.replace("{{COVERCOLOR}}", cover_color)
 
     with open(config.tex_file, "w") as file:
         file.write(tex)
