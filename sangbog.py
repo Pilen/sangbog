@@ -47,7 +47,10 @@ def get_config():
     config.logo_color = parse_color(config.logo_color)
     config.title_color = parse_color(config.title_color, config.logo_color)
     config.cover_color = parse_color(config.cover_color)
-
+    print("Logo color:", *config.logo_color)
+    if config.title_color != config.logo_color:
+        print("Title color:", *config.title_color)
+    print("Cover color:", *config.cover_color)
 
     if config.tex_file is None:
         config.tex_filename = os.path.basename(config.output).rsplit(".", 1)[0] + ".tex"
